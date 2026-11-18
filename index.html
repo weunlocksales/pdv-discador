@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discador PDV - Unlock</title>
+<style>
+  body { margin:0; background:#fff; }
+  /* todo nuestro estilo va dentro de #pdv: el widget de comOS se inserta en la misma página y no debe heredarlo */
+  #pdv { font-family: Montserrat, Arial, sans-serif; color:#333; }
+  #pdv header { background:#0177FF; color:#fff; padding:14px 24px; font-weight:700; font-size:18px; }
+  #pdv main { padding:20px 24px; max-width:440px; }
+  #pdv button { background:#0177FF; color:#fff; border:0; border-radius:8px; padding:10px 16px; font-size:14px; cursor:pointer; margin:0 8px 6px 0; }
+  #pdv button.sec { background:#EBEAEA; color:#333; }
+  #pdv button.on { background:#9166FA; color:#fff; }
+  #pdv button:disabled { opacity:.45; cursor:default; }
+  #pdv select { padding:6px; border:1px solid #C9C9C9; border-radius:6px; }
+  #estado { font-weight:700; }
+  #pdv pre { background:#EBEAEA; padding:12px; border-radius:8px; white-space:pre-wrap; max-height:160px; overflow:auto; font-size:12px; }
+  #cola { display:none; background:#EBEAEA; border-left:6px solid #0177FF; border-radius:8px; padding:14px 16px; margin-bottom:16px; }
+  .prog { font-size:12px; color:#959595; margin-bottom:6px; }
+  .nombre { font-size:18px; font-weight:700; }
+  .negocio { font-size:15px; font-weight:700; color:#0177FF; margin-bottom:2px; display:none; }
+  #pdv button.cp { padding:2px 10px; font-size:12px; margin:0 0 0 8px; }
+  #pdv button.ok { background:#17A673; }
+  .contactado { color:#17A673; font-weight:700; margin:6px 0; }
+  .tel { margin:6px 0; font-size:15px; }
+  .int { display:inline-block; background:#fff; border-radius:12px; padding:2px 10px; font-size:12px; margin-left:8px; }
+  #msg { margin:10px 0 0; font-weight:700; min-height:20px; color:#0177FF; }
+  .cfg { font-size:13px; margin:8px 0; }
+  #pdv details { margin-top:14px; }
+  #pdv .llam { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:7px 0; border-bottom:1px solid #EBEAEA; font-size:13px; }
+  #pdv .llam .t { flex:1 1 100%; }
+  #pdv .llam button { padding:5px 12px; font-size:12px; margin:0 6px 0 0; }
+  #pdv #modalLlam { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.45); z-index:2147483000; align-items:center; justify-content:center; }
+  #pdv #modalLlam .caja { background:#fff; border-radius:12px; width:600px; max-width:92vw; max-height:82vh; display:flex; flex-direction:column; padding:16px 18px; box-shadow:0 8px 30px rgba(0,0,0,.3); }
+  #pdv #modalLlam .cab { display:flex; align-items:center; justify-content:space-between; font-weight:700; font-size:16px; margin-bottom:6px; }
+  #pdv #modalLlam .sub { font-size:12px; color:#959595; margin-bottom:8px; }
+  #pdv #modalLlam .cuerpo { overflow:auto; font-size:14px; line-height:1.55; white-space:pre-wrap; }
+  #pdv #modalLlam audio { width:100%; margin:6px 0 10px; }
+</style>
+</head>
+<body>
+<div id="pdv">
+<header>Discador PDV · Unlock <span style="font-size:11px;font-weight:400;opacity:.75;margin-left:8px">v26-10-26e</span></header>
+<main>
+  <p>Phone Widget de comOS. Estado: <span id="estado">cargando…</span></p>
+
+  <div id="vacio">Abre este discador desde el tablero: filtra tus sellers y pulsa el botón para llamar la lista.</div>
+
+  <div id="cola">
+    <div style="margin-bottom:10px">
+      <button id="mManual" onclick="setModo('manual')">Manual</button>
+      <button id="mAuto" class="sec" onclick="setModo('auto')">Automático</button>
+    </div>
+    <div class="prog" id="prog"></div>
+    <div class="negocio" id="negocioRow"><span id="negocio"></span><button class="cp" id="bCopNeg" onclick="copiarNegocio()">Copiar</button></div>
+    <div class="nombre" id="nombre"></div>
+    <div class="prog" id="sid"></div>
+    <div id="tels"></div>
+    <div style="margin:6px 0"><button class="ok" id="bCont" onclick="marcarContactado()">✔ Contactado</button><button class="sec" id="bHist" onclick="verHistorial()">📚 Llamadas anteriores</button></div>
+
+    <div id="ctlManual">
+      <button onclick="ant()" class="sec" id="bAnt">← Anterior</button>
+      <button onclick="llamarActual(false)" id="bLlamar">Llamar</button>
+      <button onclick="sig()" class="sec" id="bSig">Siguiente →</button>
+    </div>
+
+    <div id="ctlAuto" style="display:none">
+      <div class="cfg">
+        Intentos por número:
+        <select id="maxi"><option>1</option><option selected>2</option><option>3</option></select>
+        &nbsp; Pausa entre llamadas:
+        <select id="pausa"><option value="3">3 s</option><option value="5" selected>5 s</option><option value="10">10 s</option></select>
+        &nbsp; Espera entre intentos al mismo número:
+        <select id="espera"><option value="0" selected>Sin espera</option><option value="10">10 s</option><option value="30">30 s</option><option value="60">1 min</option><option value="300">5 min</option><option value="600">10 min</option><option value="900">15 min</option><option value="1800">30 min</option></select>
+      </div>
+      <button id="bIni" onclick="iniciarAuto()">▶ Iniciar</button>
+      <button id="bPau" class="sec" onclick="pausar('Pausado')">⏸ Pausar</button>
+    </div>
+    <div id="msg"></div>
+  </div>
+
+  <details id="misLlam" open>
+    <summary>Mis llamadas de hoy</summary>
+    <div id="llamLista" style="margin-top:8px"></div>
+  </details>
+
+  <details>
+    <summary>Pruebas</summary>
+    <p style="margin:8px 0">Escribe un número tuyo con código de país y pulsa Llamar. Para probar el modo Automático, escribe varios separados por coma (cada uno es un seller) y pulsa «Probar en automático». Para un seller con varios teléfonos, separa los sellers con «;» y los teléfonos de cada uno con coma (ej.: +57a, +57b ; +57c).</p>
+    <input id="numero" type="tel" placeholder="+57…" style="padding:10px;border:1px solid #C9C9C9;border-radius:8px;font-size:14px;width:340px">
+    <button onclick="llamarPrueba()">Llamar a este número</button>
+    <button onclick="colaPrueba()">Probar en automático</button>
+    <h4>Registro</h4>
+    <pre id="log"></pre>
+  </details>
+</main>
+<div id="modalLlam">
+  <div class="caja">
+    <div class="cab"><span id="mlTitulo"></span><span><button class="sec cp" id="mlVolver" onclick="verHistorial()" style="display:none">← Volver</button><button class="sec cp" id="mlCopiar" onclick="copiarTexto()" style="display:none">Copiar</button><button class="sec cp" onclick="cerrarModal()">✕ Cerrar</button></span></div>
+    <div class="sub" id="mlSub"></div>
+    <div id="mlAudio"></div>
+    <div class="cuerpo" id="mlCuerpo"></div>
+  </div>
+</div>
+</div>
+
+<script>
+  var COLA = [], pos = 0, ACTUAL = null, ACTUAL_TEL = null, FALLOS_SEGUIDOS = 0, FALLOS_RECIENTES = [];
+  var MODO = "manual", RUN = false, EN_LLAMADA = false, WD = null, CD = null;
+
+  // Intentos por NÚMERO y sellers contactados. Se reinician cada día.
+  function hoy(){ var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+  function cargarEstado(){
+    var e = null;
+    try { e = JSON.parse(localStorage.getItem('pdv_estado_v2') || 'null'); } catch(err){ e = null; }
+    if (!e || e.dia !== hoy() || !e.n || !e.cont) e = { dia: hoy(), n: {}, cont: {}, malos: {}, ult: {} };
+    if (!e.malos) e.malos = {};
+    if (!e.ult) e.ult = {};
+    return e;
+  }
+  var ESTADO = cargarEstado();
+  function chequeDia(){ if (ESTADO.dia !== hoy()) ESTADO = cargarEstado(); }
+  function guardarEstado(){ try { localStorage.setItem('pdv_estado_v2', JSON.stringify(ESTADO)); } catch(err){} }
+  function clave(id, num){ return id + "|" + num; }
+  function intentos(id, num){ return ESTADO.n[clave(id, num)] || 0; }
+  function esContactado(id){ return !!ESTADO.cont[id]; }
+
+  function $(id){ return document.getElementById(id); }
+  function uso(evento, detalle){ if (window.opener) { try { window.opener.postMessage({ type: "uso", evento: evento, detalle: detalle || "" }, "*"); } catch(e){} } }
+  function log(m){ var p = $('log'); p.textContent += m + "\n"; p.scrollTop = p.scrollHeight; }
+  function msg(m){ $('msg').textContent = m || ""; }
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function MAXI(){ return parseInt($('maxi').value, 10) || 2; }
+  function PAUSA(){ return parseInt($('pausa').value, 10) || 5; }
+  function ESPERA(){ var v = parseInt($('espera').value, 10); return (isNaN(v) ? 0 : v) * 1000; } // las opciones están en segundos
+  function fmtEsp(ms){ return ms < 60000 ? Math.ceil(ms / 1000) + " s" : Math.ceil(ms / 60000) + " min"; }
+
+  function normTel(t){
+    var d = String(t).replace(/\D/g, "");
+    if (/^(044|045|521|52|44|45)?\d{10}$/.test(d)) {
+      var n = d.slice(-10);
+      if (/^[2-9]/.test(n)) return "+52" + n; // un número nacional mexicano no empieza por 0 ni por 1
+    }
+    return null;
+  }
+  // Todos los teléfonos válidos del seller, sin repetidos
+  function telsDe(s){
+    var out = [], vistos = {};
+    (s.tels || []).forEach(function(t){
+      var n = s.prueba ? t : normTel(t);
+      if (n && !vistos[n]) { vistos[n] = 1; out.push(n); }
+    });
+    return out;
+  }
+  // Milisegundos que faltan para poder volver a marcar este número (0 si ya se puede)
+  function faltaDe(id, n){
+    var u = ESTADO.ult[clave(id, n)] || 0;
+    return u ? Math.max(0, u + ESPERA() - Date.now()) : 0;
+  }
+  // Números del seller que todavía no llegan a p intentos y ya cumplieron la espera (un seller contactado no tiene pendientes)
+  function pendientes(s, p){
+    if (esContactado(s.id)) return [];
+    return telsDe(s).filter(function(n){ return !ESTADO.malos[clave(s.id, n)] && intentos(s.id, n) < p && faltaDe(s.id, n) <= 0; });
+  }
+  // Lo que falta (en ms) para que algún número que aún tiene intentos disponibles cumpla la espera; null si no hay ninguno esperando
+  function esperaDe(s){
+    if (esContactado(s.id)) return null;
+    var min = null, max = MAXI();
+    telsDe(s).forEach(function(n){
+      if (ESTADO.malos[clave(s.id, n)]) return;
+      var c = intentos(s.id, n), f = faltaDe(s.id, n);
+      if (c > 0 && c < max && f > 0 && (min === null || f < min)) min = f;
+    });
+    return min;
+  }
+  function proximaEspera(){
+    var min = null;
+    COLA.forEach(function(s){ var f = esperaDe(s); if (f !== null && (min === null || f < min)) min = f; });
+    return min;
+  }
+  // Siguiente llamada del automático: se termina un seller (todos sus números, p intentos cada uno, un número tras otro) y recién ahí pasa al siguiente
+  function buscar(desde, p){
+    chequeDia();
+    for (var k = desde; k < COLA.length; k++) {
+      var ps = pendientes(COLA[k], p);
+      if (ps.length) return { k: k, num: ps[0] };
+    }
+    return null;
+  }
+  function siguienteNumero(s){
+    var ps = pendientes(s, MAXI());
+    return ps.length ? ps[0] : null;
+  }
+
+  function render(){
+    var hay = COLA.length > 0;
+    $('vacio').style.display = hay ? 'none' : 'block';
+    $('cola').style.display = hay ? 'block' : 'none';
+    $('mManual').className = MODO === "manual" ? "" : "sec";
+    $('mAuto').className = MODO === "auto" ? "on" : "sec";
+    $('ctlManual').style.display = MODO === "manual" ? "block" : "none";
+    $('ctlAuto').style.display = MODO === "auto" ? "block" : "none";
+    $('bIni').disabled = RUN;
+    $('bPau').disabled = !RUN;
+    if (!hay) return;
+    var s = COLA[pos];
+    $('prog').textContent = "Seller " + (pos + 1) + " de " + COLA.length + (s.filtro ? " · " + s.filtro : "");
+    var neg = (s.negocio || "").trim();
+    $('negocio').textContent = neg;
+    $('negocioRow').style.display = neg ? 'block' : 'none';
+    $('bCopNeg').textContent = 'Copiar';
+    $('nombre').textContent = s.nombre || "(sin nombre)";
+    $('sid').textContent = "ID " + s.id;
+    chequeDia();
+    var max = MAXI(), html = "", vistos = {}, idx = 0;
+    (s.tels || []).forEach(function(t){
+      var nt = s.prueba ? t : normTel(t);
+      if (!nt) { html += '<div class="tel">📞 ' + esc(t) + ' (no válido)</div>'; return; }
+      if (vistos[nt]) return;
+      vistos[nt] = 1;
+      var n = intentos(s.id, nt), i = idx++;
+      html += '<div class="tel">📞 ' + esc(nt) + ' <span class="int">' + n + '/' + max + '</span>' + (ESTADO.malos[clave(s.id, nt)] ? ' ✖ no arrancó' : (n >= max ? ' (máximo)' : (faltaDe(s.id, nt) > 0 ? ' · espera ' + fmtEsp(faltaDe(s.id, nt)) : ''))) +
+        (MODO === "manual" ? ' <button class="cp" onclick="llamarNumero(' + i + ')">Llamar</button>' : '') + '</div>';
+    });
+    if (esContactado(s.id)) html += '<div class="contactado">✔ Contactado: se saltan sus demás números</div>';
+    $('tels').innerHTML = html;
+    $('bCont').textContent = esContactado(s.id) ? '↩ Quitar contactado' : '✔ Contactado';
+    $('bAnt').disabled = pos === 0;
+    $('bSig').disabled = pos >= COLA.length - 1;
+  }
+
+  function setModo(m){
+    if (m === MODO) return;
+    if (RUN) pausar("Pausado");
+    MODO = m; msg(""); render();
+  }
+  // Copia al portapapeles (con respaldo para navegadores sin la API moderna) y avisa en el botón
+  function copiar(txt, boton, evento){
+    var listo = function(){
+      boton.textContent = '¡Copiado!';
+      if (evento) uso(evento, "");
+      setTimeout(function(){ boton.textContent = 'Copiar'; }, 1500);
+    };
+    var respaldo = function(){
+      var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); listo(); } catch(e){ log("No se pudo copiar: " + e); }
+      document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txt).then(listo, respaldo); } else { respaldo(); }
+  }
+  function copiarNegocio(){
+    var txt = ($('negocio').textContent || "").trim();
+    if (txt) copiar(txt, $('bCopNeg'), "copiar_negocio");
+  }
+  function sig(){ if (pos < COLA.length - 1) { pos++; render(); } }
+  function ant(){ if (pos > 0) { pos--; render(); } }
+
+  function limpiarTemporizadores(){
+    if (CD) { clearInterval(CD); CD = null; }
+    if (WD) { clearTimeout(WD); WD = null; }
+  }
+  function terminarLista(){
+    RUN = false; limpiarTemporizadores(); msg("Lista terminada ✔"); render();
+  }
+  function pausar(motivo){
+    if (RUN) uso("discador_pausa", motivo || "");
+    RUN = false; limpiarTemporizadores();
+    msg(motivo === "" ? "" : (motivo || "Pausado")); render();
+  }
+
+  function llamarActual(auto, numForzado){
+    var s = COLA[pos]; if (!s) return;
+    var num = numForzado || siguienteNumero(s);
+    if (!num) {
+      log("Este seller no tiene números pendientes");
+      if (auto) avanzar();
+      else { var fs = esperaDe(s); msg(fs !== null ? "El siguiente intento a este seller estará disponible en " + fmtEsp(fs) + "." : "Este seller ya llegó al máximo de intentos en todos sus números."); }
+      return;
+    }
+    try {
+      ACTUAL = s.id; ACTUAL_TEL = num; EN_LLAMADA = false;
+      var w = window.LlaProSdk("getWidget");
+      w.maximize();
+      w.startCall({ callTo: num, optionalData: { contactExternalId: String(s.id) } });
+      log("startCall a " + num + " (seller " + s.id + ", intento " + (intentos(s.id, num) + 1) + ")");
+      msg(auto ? "Llamando a " + (s.nombre || s.id) + "…" : "");
+      if (WD) clearTimeout(WD);
+      WD = setTimeout(function(){
+        if (EN_LLAMADA) return;
+        WD = null;
+        var k = clave(s.id, num);
+        ESTADO.malos[k] = 1; guardarEstado();
+        FALLOS_SEGUIDOS++; FALLOS_RECIENTES.push(k);
+        log("La llamada a " + num + " no inició en 20 s: se marca como fallida y se salta");
+        uso("llamada_no_inicia", "seller=" + s.id);
+        if (RUN) {
+          if (FALLOS_SEGUIDOS >= 3) {
+            // si fallan 3 seguidas el problema es del micrófono o la conexión, no de los números: se les quita la marca
+            FALLOS_RECIENTES.forEach(function(x){ delete ESTADO.malos[x]; }); guardarEstado();
+            FALLOS_SEGUIDOS = 0; FALLOS_RECIENTES = [];
+            pausar("Pausado: fallaron 3 llamadas seguidas. Revisa el micrófono y la conexión, y vuelve a iniciar.");
+          } else { msg("No se pudo iniciar " + num + ", paso al siguiente…"); render(); avanzar(); }
+        } else {
+          msg("No se pudo iniciar la llamada a " + num + ". Puede que el número no sea válido, quedó marcado como fallido.");
+          render();
+        }
+      }, 20000);
+    } catch(e){
+      log("error al llamar: " + e);
+      if (RUN) pausar("Pausado: error al llamar");
+    }
+  }
+
+  // Todos los números que quedan están esperando su siguiente intento: se espera y se reanuda solo
+  function esperarYReanudar(faltaMs){
+    var hasta = Date.now() + faltaMs;
+    uso("discador_espera", "min=" + Math.ceil(faltaMs / 60000));
+    limpiarTemporizadores();
+    var texto = function(){
+      var seg = Math.max(0, Math.ceil((hasta - Date.now()) / 1000));
+      return "Esperando para el siguiente intento: " + Math.floor(seg / 60) + " min " + ("0" + (seg % 60)).slice(-2) + " s (el discador sigue solo; puedes pausar)";
+    };
+    msg(texto()); render();
+    CD = setInterval(function(){
+      if (!RUN) { limpiarTemporizadores(); return; }
+      if (Date.now() < hasta) { msg(texto()); return; }
+      limpiarTemporizadores();
+      var r2 = buscar(0, MAXI());
+      if (!r2) {
+        var f2 = proximaEspera();
+        if (f2 !== null) { esperarYReanudar(f2); return; }
+        terminarLista(); return;
+      }
+      pos = r2.k; render(); llamarActual(true, r2.num);
+    }, 1000);
+  }
+
+  function iniciarAuto(){
+    var r = buscar(pos, MAXI());
+    if (!r) {
+      var f = proximaEspera();
+      if (f !== null) { RUN = true; uso("discador_auto_iniciar", "desde=" + (pos + 1)); render(); esperarYReanudar(f); return; }
+      msg("No quedan números por llamar (todos llegaron al máximo, ya están contactados o no son válidos)."); return;
+    }
+    RUN = true; uso("discador_auto_iniciar", "desde=" + (pos + 1)); pos = r.k; render(); llamarActual(true, r.num);
+  }
+
+  // Manual: llamar un número concreto del seller
+  function llamarNumero(i){
+    var s = COLA[pos]; if (!s) return;
+    var num = telsDe(s)[i]; if (!num) return;
+    delete ESTADO.malos[clave(s.id, num)]; guardarEstado();
+    var f = faltaDe(s.id, num);
+    if (f > 0 && intentos(s.id, num) < MAXI() && !confirm("Este número se marcó hace poco. El siguiente intento recomendado es en " + fmtEsp(f) + ". ¿Llamar de todos modos?")) return;
+    if (intentos(s.id, num) >= MAXI() && !confirm("Este número ya se marcó " + intentos(s.id, num) + " veces. ¿Llamar de todos modos?")) return;
+    llamarActual(false, num);
+  }
+
+  // El agente marca (o quita) al seller como contactado: el automático se salta sus demás números
+  function marcarContactado(){
+    var s = COLA[pos]; if (!s) return;
+    if (esContactado(s.id)) { delete ESTADO.cont[s.id]; guardarEstado(); render(); return; }
+    ESTADO.cont[s.id] = 1; guardarEstado();
+    uso("marcar_contactado", "seller=" + s.id);
+    if (MODO === "manual" && pos < COLA.length - 1) { pos++; }
+    render();
+  }
+
+  function avanzar(){
+    var r = buscar(pos, MAXI());
+    if (!r) {
+      var f = proximaEspera();
+      if (f !== null) { esperarYReanudar(f); return; }
+      terminarLista(); return;
+    }
+    var seg = PAUSA();
+    msg("Siguiente llamada en " + seg + " s…");
+    CD = setInterval(function(){
+      if (!RUN) { limpiarTemporizadores(); return; }
+      seg--;
+      if (seg > 0) { msg("Siguiente llamada en " + seg + " s…"); return; }
+      limpiarTemporizadores();
+      // se vuelve a calcular por si el agente marcó un seller como contactado durante la pausa
+      var r2 = buscar(pos, MAXI());
+      if (!r2) { terminarLista(); return; }
+      pos = r2.k; render(); llamarActual(true, r2.num);
+    }, 1000);
+  }
+
+  // Cola de prueba: números escritos a mano (no quedan guardados en el código)
+  function colaPrueba(){
+    var txt = $('numero').value || "";
+    // Con «;» o salto de línea: cada grupo es un seller y las comas separan sus teléfonos. Sin eso: cada coma es un seller.
+    var grupos = /[;\n]/.test(txt) ? txt.split(/[;\n]/) : txt.split(",");
+    var limpiar = function(x){ return x.replace(/[\s\-()]/g, ""); };
+    var sellers = grupos.map(function(g){ return g.split(",").map(limpiar).filter(Boolean); }).filter(function(a){ return a.length; });
+    if (!sellers.length) { log("Escribe al menos un número"); return; }
+    var malos = [];
+    sellers.forEach(function(a){ a.forEach(function(n){ if (!/^\+\d{8,15}$/.test(n)) malos.push(n); }); });
+    if (malos.length) { log("Número no válido (usa +código de país y número): " + malos.join(", ")); return; }
+    pausar("");
+    COLA = sellers.map(function(a, i){ return { id: "prueba-" + (i + 1), nombre: "Prueba " + (i + 1), tels: a, filtro: "Lista de prueba", prueba: true }; });
+    Object.keys(ESTADO.n).forEach(function(k){ if (k.indexOf("prueba-") === 0) delete ESTADO.n[k]; });
+    Object.keys(ESTADO.cont).forEach(function(k){ if (k.indexOf("prueba-") === 0) delete ESTADO.cont[k]; });
+    guardarEstado();
+    $('espera').value = "0"; // en las pruebas no se espera entre intentos
+    pos = 0; MODO = "auto"; msg("");
+    log("Cola de prueba: " + COLA.length + " sellers, " + COLA.reduce(function(t, x){ return t + x.tels.length; }, 0) + " números. Pulsa Iniciar.");
+    render();
+  }
+
+  function llamarPrueba(){
+    var n = ($('numero').value || "").replace(/[\s\-()]/g, "");
+    if (!/^\+\d{8,15}$/.test(n)) { log("Número no válido. Usa el formato +57XXXXXXXXXX"); return; }
+    if (!confirm("¿Llamar ahora a " + n + "?")) { log("Llamada cancelada"); return; }
+    try {
+      window.LlaProSdk("getWidget").maximize();
+      window.LlaProSdk("getWidget").startCall({ callTo: n, optionalData: { contactExternalId: "prueba-pdv-discador" } });
+      log("startCall enviado a " + n);
+    } catch(e){ log("error al llamar: " + e); }
+  }
+
+  // El tablero (Apps Script) manda la lista filtrada
+  window.addEventListener("message", function(e){
+    if (!/^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/.test(e.origin)) return;
+    var d = e.data;
+    if (d && d.type === "resp_historial" && PEND[d.rid]) { var ph = PEND[d.rid]; delete PEND[d.rid]; mostrarHistorial(ph, d.r || {}); return; }
+    if (d && d.type === "resp_llamada" && PEND[d.rid]) { var pp = PEND[d.rid]; delete PEND[d.rid]; mostrarRespuesta(pp, d.r || {}); return; }
+    if (d && d.type === "cola" && Array.isArray(d.items)) {
+      pausar(""); COLA = d.items.slice(0, 500); pos = 0;
+      log("Lista recibida: " + COLA.length + " sellers"); uso("discador_lista", "sellers=" + COLA.length);
+      render();
+    }
+  });
+  if (window.opener) { try { window.opener.postMessage({ type: "listo" }, "*"); } catch(e){} }
+
+  (function (L, l, a, p, r, o) {
+    L.LlaProSdk = L.LlaProSdk || function () { (L.LlaProSdk.q = L.LlaProSdk.q || []).push(arguments); };
+    L._LlaProSettings = { integrationId: p };
+    r = l.getElementsByTagName("head")[0];
+    o = l.createElement("script"); o.id = p; o.async = 1; o.src = a;
+    o.onerror = function(){ log("Error cargando el script del widget"); };
+    r.appendChild(o);
+  })(window, document, "https://widget.llamadapro.app/widgetsdk.umd.js", "pdv-unlock");
+
+  window.LlaProSdk("initPhoneWidgetSdk", "pdv-unlock");
+  window.LlaProSdk("createWidget", { widgetId: "pdv-phone-widget" });
+
+  window.addEventListener("llapro_phonewidget_on_ready", function(){
+    $('estado').textContent = "widget listo"; log("on_ready");
+  });
+  // El seller al que pertenece la llamada (el widget devuelve el contactExternalId que le pasamos al iniciarla)
+  function idDe(det){ return (det && det.optionalData && det.optionalData.contactExternalId) || ACTUAL; }
+
+  window.addEventListener("llapro_phonewidget_on_call_start", function(e){
+    EN_LLAMADA = true; FALLOS_SEGUIDOS = 0; FALLOS_RECIENTES = []; if (WD) { clearTimeout(WD); WD = null; }
+    log("call_start " + JSON.stringify(e.detail));
+    registrarInicio(e.detail);
+    uso("llamada_inicio", "seller=" + idDe(e.detail) + " modo=" + MODO);
+  });
+  window.addEventListener("llapro_phonewidget_on_call_end", function(e){
+    log("call_end " + JSON.stringify(e.detail));
+    registrarFin();
+    EN_LLAMADA = false;
+    var id = idDe(e.detail);
+    uso("llamada_fin", "seller=" + id + " modo=" + MODO);
+    if (id && id !== "prueba-pdv-discador") {
+      var raw = e.detail && e.detail.callTo;
+      var num = (String(id) === String(ACTUAL) && ACTUAL_TEL) ? ACTUAL_TEL : (normTel(raw) || raw);
+      if (num) { chequeDia(); ESTADO.n[clave(id, num)] = intentos(id, num) + 1; ESTADO.ult[clave(id, num)] = Date.now(); guardarEstado(); }
+      render();
+      if (RUN) avanzar();
+    }
+  });
+
+  // ---- Mis llamadas de hoy: transcripción y audio (los pide el tablero a comOS) ----
+  function cargarLlamadas(){
+    var e = null;
+    try { e = JSON.parse(localStorage.getItem('pdv_llamadas_v1') || 'null'); } catch(err){ e = null; }
+    if (!e || e.dia !== hoy() || !Array.isArray(e.items)) e = { dia: hoy(), items: [] };
+    e.items.forEach(function(it){ if (!it.fin) it.fin = it.ini; }); // una llamada que quedó abierta al recargar la página
+    return e;
+  }
+  var LLAM = cargarLlamadas(), PEND = {}, MODAL_ITEM = null, MODAL_MODO = "", MODAL_TEXTO = "";
+  function guardarLlamadas(){ try { localStorage.setItem('pdv_llamadas_v1', JSON.stringify(LLAM)); } catch(err){} }
+  function chequeLlamadasDia(){ if (LLAM.dia !== hoy()) LLAM = { dia: hoy(), items: [] }; }
+  function fmtHora(ms){ var d = new Date(ms); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); }
+  function nombreSeller(id){
+    for (var i = 0; i < COLA.length; i++) if (String(COLA[i].id) === String(id)) {
+      var s = COLA[i]; return (s.negocio ? s.negocio + " · " : "") + (s.nombre || id);
+    }
+    return String(id || "");
+  }
+  function registrarInicio(det){
+    chequeLlamadasDia();
+    var id = idDe(det) || "";
+    LLAM.items.push({ to: (det && det.callTo) || ACTUAL_TEL || "", ini: Date.now(), fin: null, seller: String(id).indexOf("prueba") === 0 ? "Llamada de prueba" : nombreSeller(id), id: String(id) });
+    if (LLAM.items.length > 100) LLAM.items.shift();
+    guardarLlamadas(); renderLlamadas();
+  }
+  function registrarFin(){
+    chequeLlamadasDia();
+    for (var k = LLAM.items.length - 1; k >= 0; k--) if (!LLAM.items[k].fin) { LLAM.items[k].fin = Date.now(); break; }
+    guardarLlamadas(); renderLlamadas();
+  }
+  function renderLlamadas(){
+    chequeLlamadasDia();
+    var el = $('llamLista');
+    if (!LLAM.items.length) { el.innerHTML = '<div class="prog">Todavía no hiciste llamadas hoy.</div>'; return; }
+    var html = "";
+    for (var k = LLAM.items.length - 1, n = 0; k >= 0 && n < 30; k--, n++) {
+      var it = LLAM.items[k], listo = !!it.fin;
+      var dur = listo ? Math.round((it.fin - it.ini) / 1000) + " s" : "en curso";
+      html += '<div class="llam"><span class="t"><b>' + esc(it.seller) + '</b><br>' + esc(it.to) + ' · ' + fmtHora(it.ini) + ' · ' + dur + '</span>' +
+        '<button onclick="verLlamada(' + k + ',\'texto\')"' + (listo ? '' : ' disabled') + '>📝 Transcripción</button>' +
+        '<button onclick="verLlamada(' + k + ',\'audio\')"' + (listo ? '' : ' disabled') + '>▶ Audio</button></div>';
+    }
+    el.innerHTML = html;
+  }
+  function modalMsg(m){ $('mlCuerpo').style.whiteSpace = "pre-wrap"; $('mlCuerpo').textContent = m || ""; }
+  function abrirModal(titulo, it){
+    MODAL_ITEM = it; MODAL_TEXTO = "";
+    $('mlTitulo').textContent = titulo;
+    $('mlSub').textContent = it.cuando ? it.seller + " · " + it.cuando + " · " + (it.agente || "") : (it.to ? it.seller + " · " + it.to + " · " + fmtHora(it.ini) : it.seller);
+    $('mlAudio').innerHTML = ""; $('mlCuerpo').textContent = ""; $('mlCopiar').style.display = "none";
+    $('mlVolver').style.display = it.callId ? "" : "none";
+    $('modalLlam').style.display = "flex";
+  }
+  function cerrarModal(){
+    MODAL_ITEM = null; $('mlAudio').innerHTML = ""; $('modalLlam').style.display = "none";
+  }
+  function copiarTexto(){
+    if (MODAL_TEXTO) copiar(MODAL_TEXTO, $('mlCopiar'));
+  }
+  function verLlamada(i, modo){
+    var it = LLAM.items[i]; if (!it) return;
+    abrirModal(modo === "audio" ? "▶ Audio de la llamada" : "📝 Transcripción de la llamada", it);
+    MODAL_MODO = modo;
+    uso(modo === "audio" ? "ver_audio" : "ver_transcripcion", "");
+    pedirLlamada(it, modo, 0);
+  }
+  // Manda un pedido al tablero y deja la respuesta pendiente (llega por "message", ver arriba)
+  function pedirAlTablero(mensaje, pendiente, it){
+    var rid = Math.random().toString(36).slice(2);
+    mensaje.rid = rid; PEND[rid] = pendiente;
+    try { window.opener.postMessage(mensaje, "*"); }
+    catch(e){ delete PEND[rid]; modalMsg("No se pudo contactar con el tablero."); return; }
+    setTimeout(function(){ if (PEND[rid]) { delete PEND[rid]; if (MODAL_ITEM === it) modalMsg("El tablero no respondió. Cierra esta ventana y vuelve a pulsar el botón."); } }, 45000);
+  }
+  function pedirLlamada(it, modo, intento){
+    if (!window.opener) { modalMsg("Abre el discador desde el tablero para ver la transcripción y el audio."); return; }
+    modalMsg(intento ? "Buscando la llamada en comOS… (intento " + (intento + 1) + ")" : "Buscando la llamada…");
+    pedirAlTablero({ type: "pedir_llamada", to: it.to, startMs: it.ini, callId: it.callId || "" }, { it: it, modo: modo, intento: intento }, it);
+  }
+  function reintentar(p, ms, tope, texto){
+    if (p.intento >= tope) { modalMsg("Todavía no está disponible. Vuelve a pulsar el botón en un par de minutos."); return; }
+    modalMsg(texto);
+    setTimeout(function(){ if (MODAL_ITEM === p.it && MODAL_MODO === p.modo) pedirLlamada(p.it, p.modo, p.intento + 1); }, ms);
+  }
+  function mostrarRespuesta(p, r){
+    if (MODAL_ITEM !== p.it || MODAL_MODO !== p.modo) return;
+    if (r.estado === "buscando") { reintentar(p, 10000, 18, "Buscando la llamada… (puede tardar unos minutos en aparecer; se vuelve a intentar solo)"); return; }
+    if (r.estado === "procesando") { reintentar(p, 15000, 12, "comOS todavía está procesando el audio y la transcripción… se vuelve a intentar solo."); return; }
+    if (r.estado === "sin_audio") { modalMsg(r.mensaje || "Esta llamada no tiene audio."); return; }
+    if (r.estado !== "listo") { modalMsg("No se pudo consultar la llamada: " + (r.mensaje || "error desconocido")); return; }
+    if (p.modo === "audio") {
+      if (!r.audioUrl) { reintentar(p, 15000, 8, "El audio todavía no está disponible… se vuelve a intentar solo."); return; }
+      var a = document.createElement("audio"); a.controls = true; a.autoplay = true; a.src = r.audioUrl;
+      $('mlAudio').innerHTML = ""; $('mlAudio').appendChild(a);
+      modalMsg("Duración: " + (r.duracion || 0) + " s");
+    } else {
+      if (!r.texto) { reintentar(p, 15000, 12, "La transcripción todavía no está lista (comOS la genera unos minutos después de la llamada)… se vuelve a intentar solo."); return; }
+      MODAL_TEXTO = r.texto; modalMsg(r.texto); $('mlCopiar').style.display = "";
+    }
+  }
+
+  // ---- Llamadas anteriores al mismo seller (de los últimos días) ----
+  var HIST_SELLER = null;
+  function verHistorial(){
+    var s = HIST_SELLER && MODAL_ITEM && MODAL_ITEM.callId ? HIST_SELLER : COLA[pos];
+    if (!s) return;
+    HIST_SELLER = s;
+    abrirModal("📚 Llamadas anteriores", { seller: (s.negocio ? s.negocio + " · " : "") + (s.nombre || s.id), to: "", ini: Date.now() });
+    MODAL_MODO = "historial";
+    uso("ver_historial", "seller=" + s.id);
+    pedirHistorial(s);
+  }
+  function pedirHistorial(s){
+    if (!window.opener) { modalMsg("Abre el discador desde el tablero para ver las llamadas anteriores."); return; }
+    var it = MODAL_ITEM;
+    modalMsg("Buscando llamadas anteriores…");
+    pedirAlTablero({ type: "pedir_historial", tels: telsDe(s) }, { it: it, modo: "historial" }, it);
+  }
+  function verLlamadaDeHistorial(c, modo, base){
+    var it = { seller: base.seller, to: c.tel, ini: Date.now(), callId: c.callId, cuando: c.cuando, agente: c.agente };
+    abrirModal(modo === "audio" ? "▶ Audio de la llamada" : "📝 Transcripción de la llamada", it);
+    MODAL_MODO = modo;
+    uso(modo === "audio" ? "ver_audio" : "ver_transcripcion", "historial");
+    pedirLlamada(it, modo, 0);
+  }
+  function mostrarHistorial(p, r){
+    if (MODAL_ITEM !== p.it || MODAL_MODO !== "historial") return;
+    if (r.estado !== "listo") { modalMsg("No se pudo consultar: " + (r.mensaje || "error desconocido")); return; }
+    var ll = r.llamadas || [];
+    if (!ll.length) { modalMsg("No hay llamadas anteriores a los teléfonos de este seller en los últimos días."); return; }
+    var cuerpo = $('mlCuerpo'); cuerpo.style.whiteSpace = "normal"; cuerpo.innerHTML = "";
+    ll.forEach(function(c){
+      var d = document.createElement("div"); d.className = "llam";
+      var conecto = c.duracion >= 5;
+      d.innerHTML = '<span class="t"><b>' + esc(c.cuando) + '</b> · ' + esc(c.agente) + ' · ' + (conecto ? Math.round(c.duracion) + ' s' : 'no conectó') + '<br>' + esc(c.tel) + (c.resumen ? '<br><i>' + esc(c.resumen) + '</i>' : '') + '</span>';
+      if (conecto) {
+        var b1 = document.createElement("button"); b1.textContent = "📝 Transcripción"; b1.onclick = function(){ verLlamadaDeHistorial(c, "texto", p.it); };
+        var b2 = document.createElement("button"); b2.textContent = "▶ Audio"; b2.onclick = function(){ verLlamadaDeHistorial(c, "audio", p.it); };
+        d.appendChild(b1); d.appendChild(b2);
+      }
+      cuerpo.appendChild(d);
+    });
+    if (r.total > ll.length) { var m = document.createElement("div"); m.className = "prog"; m.textContent = "Se muestran las " + ll.length + " más recientes de " + r.total + "."; cuerpo.appendChild(m); }
+  }
+
+  renderLlamadas();
+  render();
+</script>
+</body>
+</html>
