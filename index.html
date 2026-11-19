@@ -32,17 +32,36 @@
   #pdv .llam { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:7px 0; border-bottom:1px solid #EBEAEA; font-size:13px; }
   #pdv .llam .t { flex:1 1 100%; }
   #pdv .llam button { padding:5px 12px; font-size:12px; margin:0 6px 0 0; }
-  #pdv #modalLlam { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.45); z-index:2147483000; align-items:center; justify-content:center; }
-  #pdv #modalLlam .caja { background:#fff; border-radius:12px; width:600px; max-width:92vw; max-height:82vh; display:flex; flex-direction:column; padding:16px 18px; box-shadow:0 8px 30px rgba(0,0,0,.3); }
-  #pdv #modalLlam .cab { display:flex; align-items:center; justify-content:space-between; font-weight:700; font-size:16px; margin-bottom:6px; }
-  #pdv #modalLlam .sub { font-size:12px; color:#959595; margin-bottom:8px; }
-  #pdv #modalLlam .cuerpo { overflow:auto; font-size:14px; line-height:1.55; white-space:pre-wrap; }
-  #pdv #modalLlam audio { width:100%; margin:6px 0 10px; }
+  /* Ventana de transcripción/audio/historial (19/11/26): va FUERA de #pdv y con estilos propios,
+     porque el widget de comOS altera la página y dentro de #pdv se mostraba sin formato y sin scroll. */
+  #modalLlam { display:none; position:fixed !important; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.45); z-index:2147483000; align-items:center; justify-content:center; font-family: Montserrat, Arial, sans-serif; color:#333; }
+  #modalLlam .caja { background:#fff; border-radius:12px; width:760px; max-width:94vw; height:85vh; display:flex; flex-direction:column; padding:16px 18px; box-shadow:0 8px 30px rgba(0,0,0,.3); box-sizing:border-box; }
+  #modalLlam .cab { display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:700; font-size:16px; margin-bottom:6px; flex:0 0 auto; }
+  #modalLlam .sub { font-size:12px; color:#959595; margin-bottom:8px; flex:0 0 auto; }
+  #modalLlam #mlAudio { flex:0 0 auto; }
+  #modalLlam .cuerpo { flex:1 1 auto; min-height:0; overflow-y:auto; font-size:14px; line-height:1.55; white-space:pre-wrap; padding-right:6px; }
+  #modalLlam audio { width:100%; margin:6px 0 10px; }
+  #modalLlam button { font-family:inherit; border:0; border-radius:8px; cursor:pointer; padding:5px 12px; font-size:12px; margin:0 0 0 6px; background:#EBEAEA; color:#333; }
+  #modalLlam button:hover { background:#dcdbdb; }
+  #modalLlam button.prim { background:#0177FF; color:#fff; }
+  #modalLlam .llam { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:7px 0; border-bottom:1px solid #EBEAEA; font-size:13px; }
+  #modalLlam .llam .t { flex:1 1 100%; }
+  #modalLlam .llam button { margin:0 6px 0 0; }
+  #modalLlam .prog { font-size:12px; color:#959595; margin-top:6px; }
+  /* Transcripción en turnos: Agente a la izquierda en azul, Seller a la derecha en gris */
+  #modalLlam .turno { max-width:82%; margin:0 0 10px; padding:8px 12px; border-radius:12px; white-space:pre-wrap; }
+  #modalLlam .turno .q { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; }
+  #modalLlam .turno.agente { background:#e8f1ff; margin-right:auto; border-top-left-radius:4px; }
+  #modalLlam .turno.agente .q { color:#0177FF; }
+  #modalLlam .turno.seller { background:#f2f2f2; margin-left:auto; border-top-right-radius:4px; }
+  #modalLlam .turno.seller .q { color:#666; }
+  #modalLlam .turno.otro { background:#f6f0ff; }
+  #modalLlam .turno.otro .q { color:#9166FA; }
 </style>
 </head>
 <body>
 <div id="pdv">
-<header>Discador PDV · Unlock <span style="font-size:11px;font-weight:400;opacity:.75;margin-left:8px">v26-10-26e</span></header>
+<header>Discador PDV · Unlock <span style="font-size:11px;font-weight:400;opacity:.75;margin-left:8px">v26-11-19</span></header>
 <main>
   <p>Phone Widget de comOS. Estado: <span id="estado">cargando…</span></p>
 
@@ -96,14 +115,14 @@
     <pre id="log"></pre>
   </details>
 </main>
+</div>
 <div id="modalLlam">
   <div class="caja">
-    <div class="cab"><span id="mlTitulo"></span><span><button class="sec cp" id="mlVolver" onclick="verHistorial()" style="display:none">← Volver</button><button class="sec cp" id="mlCopiar" onclick="copiarTexto()" style="display:none">Copiar</button><button class="sec cp" onclick="cerrarModal()">✕ Cerrar</button></span></div>
+    <div class="cab"><span id="mlTitulo"></span><span><button id="mlVolver" onclick="verHistorial()" style="display:none">← Volver</button><button class="prim" id="mlCopiar" onclick="copiarTexto()" style="display:none">Copiar</button><button onclick="cerrarModal()">✕ Cerrar</button></span></div>
     <div class="sub" id="mlSub"></div>
     <div id="mlAudio"></div>
     <div class="cuerpo" id="mlCuerpo"></div>
   </div>
-</div>
 </div>
 
 <script>
@@ -519,6 +538,24 @@
     }
     el.innerHTML = html;
   }
+  // Muestra la transcripción en turnos (viene del tablero como "Agente: ...", "Seller: ..." separados por línea en blanco).
+  // Si el texto no tiene ese formato, se muestra tal cual.
+  function mostrarTranscripcion(texto){
+    var cuerpo = $('mlCuerpo'), partes = String(texto || "").split(/\n\s*\n/), html = "", turnos = 0;
+    partes.forEach(function(p){
+      p = p.trim(); if (!p) return;
+      var m = p.match(/^(Agente|Seller|Persona \d+):\s*([\s\S]*)$/);
+      if (m) {
+        turnos++;
+        var cls = m[1] === "Agente" ? "agente" : (m[1] === "Seller" ? "seller" : "otro");
+        html += '<div class="turno ' + cls + '"><span class="q">' + esc(m[1]) + '</span>' + esc(m[2]) + '</div>';
+      } else {
+        html += '<div class="turno otro">' + esc(p) + '</div>';
+      }
+    });
+    if (!turnos) { modalMsg(texto); return; }
+    cuerpo.style.whiteSpace = "normal"; cuerpo.innerHTML = html; cuerpo.scrollTop = 0;
+  }
   function modalMsg(m){ $('mlCuerpo').style.whiteSpace = "pre-wrap"; $('mlCuerpo').textContent = m || ""; }
   function abrirModal(titulo, it){
     MODAL_ITEM = it; MODAL_TEXTO = "";
@@ -572,7 +609,7 @@
       modalMsg("Duración: " + (r.duracion || 0) + " s");
     } else {
       if (!r.texto) { reintentar(p, 15000, 12, "La transcripción todavía no está lista (comOS la genera unos minutos después de la llamada)… se vuelve a intentar solo."); return; }
-      MODAL_TEXTO = r.texto; modalMsg(r.texto); $('mlCopiar').style.display = "";
+      MODAL_TEXTO = r.texto; mostrarTranscripcion(r.texto); $('mlCopiar').style.display = "";
     }
   }
 
@@ -619,6 +656,10 @@
     });
     if (r.total > ll.length) { var m = document.createElement("div"); m.className = "prog"; m.textContent = "Se muestran las " + ll.length + " más recientes de " + r.total + "."; cuerpo.appendChild(m); }
   }
+
+  // Cerrar con clic afuera de la caja o con Escape
+  $('modalLlam').addEventListener('click', function(e){ if (e.target === $('modalLlam')) cerrarModal(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && $('modalLlam').style.display === 'flex') cerrarModal(); });
 
   renderLlamadas();
   render();
