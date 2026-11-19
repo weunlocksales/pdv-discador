@@ -32,36 +32,11 @@
   #pdv .llam { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:7px 0; border-bottom:1px solid #EBEAEA; font-size:13px; }
   #pdv .llam .t { flex:1 1 100%; }
   #pdv .llam button { padding:5px 12px; font-size:12px; margin:0 6px 0 0; }
-  /* Ventana de transcripción/audio/historial (19/11/26): va FUERA de #pdv y con estilos propios,
-     porque el widget de comOS altera la página y dentro de #pdv se mostraba sin formato y sin scroll. */
-  #modalLlam { display:none; position:fixed !important; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.45); z-index:2147483000; align-items:center; justify-content:center; font-family: Montserrat, Arial, sans-serif; color:#333; }
-  #modalLlam .caja { background:#fff; border-radius:12px; width:760px; max-width:94vw; height:85vh; display:flex; flex-direction:column; padding:16px 18px; box-shadow:0 8px 30px rgba(0,0,0,.3); box-sizing:border-box; }
-  #modalLlam .cab { display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:700; font-size:16px; margin-bottom:6px; flex:0 0 auto; }
-  #modalLlam .sub { font-size:12px; color:#959595; margin-bottom:8px; flex:0 0 auto; }
-  #modalLlam #mlAudio { flex:0 0 auto; }
-  #modalLlam .cuerpo { flex:1 1 auto; min-height:0; overflow-y:auto; font-size:14px; line-height:1.55; white-space:pre-wrap; padding-right:6px; }
-  #modalLlam audio { width:100%; margin:6px 0 10px; }
-  #modalLlam button { font-family:inherit; border:0; border-radius:8px; cursor:pointer; padding:5px 12px; font-size:12px; margin:0 0 0 6px; background:#EBEAEA; color:#333; }
-  #modalLlam button:hover { background:#dcdbdb; }
-  #modalLlam button.prim { background:#0177FF; color:#fff; }
-  #modalLlam .llam { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:7px 0; border-bottom:1px solid #EBEAEA; font-size:13px; }
-  #modalLlam .llam .t { flex:1 1 100%; }
-  #modalLlam .llam button { margin:0 6px 0 0; }
-  #modalLlam .prog { font-size:12px; color:#959595; margin-top:6px; }
-  /* Transcripción en turnos: Agente a la izquierda en azul, Seller a la derecha en gris */
-  #modalLlam .turno { max-width:82%; margin:0 0 10px; padding:8px 12px; border-radius:12px; white-space:pre-wrap; }
-  #modalLlam .turno .q { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; }
-  #modalLlam .turno.agente { background:#e8f1ff; margin-right:auto; border-top-left-radius:4px; }
-  #modalLlam .turno.agente .q { color:#0177FF; }
-  #modalLlam .turno.seller { background:#f2f2f2; margin-left:auto; border-top-right-radius:4px; }
-  #modalLlam .turno.seller .q { color:#666; }
-  #modalLlam .turno.otro { background:#f6f0ff; }
-  #modalLlam .turno.otro .q { color:#9166FA; }
 </style>
 </head>
 <body>
 <div id="pdv">
-<header>Discador PDV · Unlock <span style="font-size:11px;font-weight:400;opacity:.75;margin-left:8px">v26-11-19</span></header>
+<header>Discador PDV · Unlock <span style="font-size:11px;font-weight:400;opacity:.75;margin-left:8px">v26-11-19b</span></header>
 <main>
   <p>Phone Widget de comOS. Estado: <span id="estado">cargando…</span></p>
 
@@ -116,6 +91,38 @@
   </details>
 </main>
 </div>
+<!-- Ventana de transcripción/audio/historial. Se dibuja dentro de un Shadow DOM (ver crearModal_):
+     el widget de comOS mete estilos globales en la página que la desarmaban (salía abajo, sin formato ni scroll).
+     Dentro del Shadow DOM ningún estilo de afuera la puede tocar. -->
+<template id="tplModal">
+<style>
+  :host { all: initial; }
+  /* Ventana de transcripción/audio/historial (19/11/26): va FUERA de #pdv y con estilos propios,
+     porque el widget de comOS altera la página y dentro de #pdv se mostraba sin formato y sin scroll. */
+  #modalLlam { display:flex; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.45); z-index:2147483000; align-items:center; justify-content:center; font-family: Montserrat, Arial, sans-serif; color:#333; }
+  #modalLlam .caja { background:#fff; border-radius:12px; width:760px; max-width:94vw; height:85vh; display:flex; flex-direction:column; padding:16px 18px; box-shadow:0 8px 30px rgba(0,0,0,.3); box-sizing:border-box; }
+  #modalLlam .cab { display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:700; font-size:16px; margin-bottom:6px; flex:0 0 auto; }
+  #modalLlam .sub { font-size:12px; color:#959595; margin-bottom:8px; flex:0 0 auto; }
+  #modalLlam #mlAudio { flex:0 0 auto; }
+  #modalLlam .cuerpo { flex:1 1 auto; min-height:0; overflow-y:auto; font-size:14px; line-height:1.55; white-space:pre-wrap; padding-right:6px; }
+  #modalLlam audio { width:100%; margin:6px 0 10px; }
+  #modalLlam button { font-family:inherit; border:0; border-radius:8px; cursor:pointer; padding:5px 12px; font-size:12px; margin:0 0 0 6px; background:#EBEAEA; color:#333; }
+  #modalLlam button:hover { background:#dcdbdb; }
+  #modalLlam button.prim { background:#0177FF; color:#fff; }
+  #modalLlam .llam { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:7px 0; border-bottom:1px solid #EBEAEA; font-size:13px; }
+  #modalLlam .llam .t { flex:1 1 100%; }
+  #modalLlam .llam button { margin:0 6px 0 0; }
+  #modalLlam .prog { font-size:12px; color:#959595; margin-top:6px; }
+  /* Transcripción en turnos: Agente a la izquierda en azul, Seller a la derecha en gris */
+  #modalLlam .turno { max-width:82%; margin:0 0 10px; padding:8px 12px; border-radius:12px; white-space:pre-wrap; }
+  #modalLlam .turno .q { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; }
+  #modalLlam .turno.agente { background:#e8f1ff; margin-right:auto; border-top-left-radius:4px; }
+  #modalLlam .turno.agente .q { color:#0177FF; }
+  #modalLlam .turno.seller { background:#f2f2f2; margin-left:auto; border-top-right-radius:4px; }
+  #modalLlam .turno.seller .q { color:#666; }
+  #modalLlam .turno.otro { background:#f6f0ff; }
+  #modalLlam .turno.otro .q { color:#9166FA; }
+</style>
 <div id="modalLlam">
   <div class="caja">
     <div class="cab"><span id="mlTitulo"></span><span><button id="mlVolver" onclick="verHistorial()" style="display:none">← Volver</button><button class="prim" id="mlCopiar" onclick="copiarTexto()" style="display:none">Copiar</button><button onclick="cerrarModal()">✕ Cerrar</button></span></div>
@@ -124,6 +131,7 @@
     <div class="cuerpo" id="mlCuerpo"></div>
   </div>
 </div>
+</template>
 
 <script>
   var COLA = [], pos = 0, ACTUAL = null, ACTUAL_TEL = null, FALLOS_SEGUIDOS = 0, FALLOS_RECIENTES = [];
@@ -146,7 +154,26 @@
   function intentos(id, num){ return ESTADO.n[clave(id, num)] || 0; }
   function esContactado(id){ return !!ESTADO.cont[id]; }
 
-  function $(id){ return document.getElementById(id); }
+  var MODAL_HOST = null, SR = null;
+  function $(id){ return document.getElementById(id) || (SR ? SR.getElementById(id) : null); }
+  // Crea la ventana dentro de un Shadow DOM, aislada de los estilos que inyecta el widget de comOS.
+  function crearModal_(){
+    if (SR) return;
+    MODAL_HOST = document.createElement('div');
+    MODAL_HOST.id = 'pdvModalHost';
+    document.body.appendChild(MODAL_HOST);
+    SR = MODAL_HOST.attachShadow({ mode: 'open' });
+    SR.appendChild(document.getElementById('tplModal').content.cloneNode(true));
+    SR.getElementById('modalLlam').addEventListener('click', function(e){ if (e.target === SR.getElementById('modalLlam')) cerrarModal(); });
+    mostrarModal_(false);
+  }
+  // El host se muestra/oculta con estilo en línea !important (le gana a cualquier estilo global).
+  function mostrarModal_(si){
+    MODAL_HOST.setAttribute('style', si
+      ? 'display:block !important; position:fixed !important; top:0 !important; left:0 !important; width:100vw !important; height:100vh !important; z-index:2147483000 !important; margin:0 !important; padding:0 !important;'
+      : 'display:none !important;');
+  }
+  function modalAbierto_(){ return !!MODAL_HOST && MODAL_HOST.style.display === 'block'; }
   function uso(evento, detalle){ if (window.opener) { try { window.opener.postMessage({ type: "uso", evento: evento, detalle: detalle || "" }, "*"); } catch(e){} } }
   function log(m){ var p = $('log'); p.textContent += m + "\n"; p.scrollTop = p.scrollHeight; }
   function msg(m){ $('msg').textContent = m || ""; }
@@ -563,10 +590,10 @@
     $('mlSub').textContent = it.cuando ? it.seller + " · " + it.cuando + " · " + (it.agente || "") : (it.to ? it.seller + " · " + it.to + " · " + fmtHora(it.ini) : it.seller);
     $('mlAudio').innerHTML = ""; $('mlCuerpo').textContent = ""; $('mlCopiar').style.display = "none";
     $('mlVolver').style.display = it.callId ? "" : "none";
-    $('modalLlam').style.display = "flex";
+    crearModal_(); mostrarModal_(true);
   }
   function cerrarModal(){
-    MODAL_ITEM = null; $('mlAudio').innerHTML = ""; $('modalLlam').style.display = "none";
+    MODAL_ITEM = null; if (!SR) return; $('mlAudio').innerHTML = ""; mostrarModal_(false);
   }
   function copiarTexto(){
     if (MODAL_TEXTO) copiar(MODAL_TEXTO, $('mlCopiar'));
@@ -658,8 +685,8 @@
   }
 
   // Cerrar con clic afuera de la caja o con Escape
-  $('modalLlam').addEventListener('click', function(e){ if (e.target === $('modalLlam')) cerrarModal(); });
-  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && $('modalLlam').style.display === 'flex') cerrarModal(); });
+  crearModal_();
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && modalAbierto_()) cerrarModal(); });
 
   renderLlamadas();
   render();
